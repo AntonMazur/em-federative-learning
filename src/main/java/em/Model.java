@@ -12,9 +12,9 @@ import JSci.maths.vectors.DoubleSparseVector;
 import JSci.maths.vectors.DoubleVector;
 
 public class Model {
-    public static double accuracy = 1e-10; // tolerance level
-    public static final int maxiter = 500; // maximum iteration
-    private static DoubleDiagonalMatrix stable; // for computational stability
+    public static double accuracy = 1e-10;
+    public static final int maxiter = 500;
+    private static DoubleDiagonalMatrix stable; // for calc stability
     private boolean converged;
     private double llh;
     private double previousllh;
@@ -22,10 +22,10 @@ public class Model {
     private int dimension;
     private int vectorCount;
     private int clusterCount;
-    // This array stores the label of assignment for each data, if converged
+    //  label of assignment for each data entry, if converged
     private int[] finalAssignment;
 
-    // this has several names: weight or mixtur portion
+    // clusters weights
     private double[] weight;
 
     // membership probability
@@ -35,18 +35,11 @@ public class Model {
     private AbstractDoubleVector[] mu; // mean or center
     private AbstractDoubleMatrix[] sigma;// covariance matrices
 
-    /*
-     * constructor
-     */
     public Model() {
         converged = false;
         count = 1;
     }
 
-    /*
-     * random initialization, assign k distinct data point to be centers please
-     * see RandomSample class for details
-     */
     private void initialization(AbstractDoubleVector[] data, int init) {
         int k = init;
         int n = vectorCount;
@@ -131,9 +124,6 @@ public class Model {
         return ans;
     }
 
-    /*
-     * print a two-d array
-     */
     public static void printArray(double[][] memberProb) {
         for (int i = 0; i < memberProb.length; i++) {
             for (int j = 0; j < memberProb[i].length; j++) {
@@ -192,16 +182,11 @@ public class Model {
         return new DoubleSquareMatrix(result);
     }
 
-    // expectation function, return the average loglikelihood of estimation
     private double expectation(int n, int k, int d) {
         double llh = 0;
         double[][] temp = new double[n][k];
         for (int h = 0; h < k; h++) {
-            /*
-             * we will use CholeskyDecomposation since sigma is positive
-             * definite. Use logarithm and exponential to compute membership
-             * probability
-             */
+
             AbstractDoubleMatrix U = ((DoubleSquareMatrix) sigma[h])
                     .choleskyDecompose()[0];
             AbstractDoubleMatrix inverse = ((DoubleSquareMatrix) U).inverse();
@@ -223,7 +208,7 @@ public class Model {
                 temp[j][i] += Math.log(weight[i]);
             }
         }
-        // obtain the sum along rows
+
         double[] T = logsumexp(temp);
 
         for (int i = 0; i < T.length; i++) {
@@ -287,19 +272,17 @@ public class Model {
     public void bulidCluster(double[][] array, int k) {
         vectorCount = array.length;
         dimension = array[0].length;
-        /*
-         * for numerical stability
-         */
+        // for numerical stability
+
         double[] arr = new double[dimension];
         for (int i = 0; i < dimension; i++)
             arr[i] = 1e-6;
         stable = new DoubleDiagonalMatrix(arr);
-        /**/
         clusterCount = k;
         data = new DoubleVector[vectorCount];
         weight = new double[k];
-        /**********************************************************/
-        System.out.println("EM for Gaussian mixture: running ... ");
+
+        System.out.println("Running ... ");
 
         for (int i = 0; i < array.length; i++) {
             double[] temp = new double[dimension];
@@ -339,24 +322,18 @@ public class Model {
         }
     }
 
-    // return the membership probability of each data point
     public double[][] getMembershipProbability() {
         return memberProb;
     }
 
-    // return the mixture portion
     public double[] getWeight() {
         return weight;
     }
 
-    /*
-     * NULL means not converged
-     */
     public int[] getLabel() {
         return finalAssignment;
     }
 
-    // return the convergence status
     public boolean isConverged() {
         return converged;
     }
