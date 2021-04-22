@@ -12,12 +12,16 @@ import JSci.maths.vectors.DoubleSparseVector;
 import JSci.maths.vectors.DoubleVector;
 
 public class Model {
-    public static double tol = 1e-10; // tolerance level
+    public static double accuracy = 1e-10; // tolerance level
     public static final int maxiter = 500; // maximum iteration
     private static DoubleDiagonalMatrix stable; // for computational stability
     private boolean converged;
-    private double llh, previousllh;
-    private int count, dimension, numOfVector, numOfCluster;
+    private double llh;
+    private double previousllh;
+    private int count;
+    private int dimension;
+    private int vectorCount;
+    private int clusterCount;
     // This array stores the label of assignment for each data, if converged
     private int[] finalAssignment;
 
@@ -44,7 +48,8 @@ public class Model {
      * see RandomSample class for details
      */
     private void initialization(AbstractDoubleVector[] data, int init) {
-        int k = init, n = numOfVector;
+        int k = init;
+        int n = vectorCount;
         mu = new DoubleVector[k];
         // idx is an array storing distinct k random values ranging from 1 to n
         int[] idx = RandomSample.randomsample(n, k);
@@ -280,7 +285,7 @@ public class Model {
      * {{1,2},{ 3,4}, {5,6}} represents three two-dimensional points
      */
     public void bulidCluster(double[][] array, int k) {
-        numOfVector = array.length;
+        vectorCount = array.length;
         dimension = array[0].length;
         /*
          * for numerical stability
@@ -290,8 +295,8 @@ public class Model {
             arr[i] = 1e-6;
         stable = new DoubleDiagonalMatrix(arr);
         /**/
-        numOfCluster = k;
-        data = new MyAbstractDoubleVector[numOfVector];
+        clusterCount = k;
+        data = new DoubleVector[vectorCount];
         weight = new double[k];
         /**********************************************************/
         System.out.println("EM for Gaussian mixture: running ... ");
@@ -312,21 +317,21 @@ public class Model {
             else
                 data[i] = new DoubleSparseVector(temp);
         }
-        initialization(data, numOfCluster);
+        initialization(data, clusterCount);
 
         previousllh = Double.NEGATIVE_INFINITY;
         while (!converged && count < Model.maxiter) {
             count++;
-            maximization(memberProb, numOfVector, k, dimension);
-            llh = expectation(numOfVector, k, dimension);
+            maximization(memberProb, vectorCount, k, dimension);
+            llh = expectation(vectorCount, k, dimension);
             // relative
-            converged = llh - previousllh < tol * Math.abs(llh);
+            converged = llh - previousllh < accuracy * Math.abs(llh);
             previousllh = llh;
         }
 
         if (converged) {
-            finalAssignment = new int[numOfVector];
-            for (int i = 0; i < numOfVector; i++) {
+            finalAssignment = new int[vectorCount];
+            for (int i = 0; i < vectorCount; i++) {
                 finalAssignment[i] = max(memberProb[i]);
             }
         } else {
@@ -357,6 +362,6 @@ public class Model {
     }
 
     public void setRelativeTolenranceLevel(double eps) {
-        tol = eps;
+        accuracy = eps;
     }
 }
