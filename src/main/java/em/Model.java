@@ -267,7 +267,7 @@ public class Model {
     /*
      * data matrix is an n x d matrix, where d is the dimension of each vector,
      * n is the number of vectors, k : number of clusters , for example,
-     * {{1,2},{ 3,4}, {5,6}} represents three two-dimensional points
+     * {{1,2},{ 3,4},{5,6}} represents three two-dimensional points
      */
     public void bulidCluster(double[][] array, int k) {
         vectorCount = array.length;

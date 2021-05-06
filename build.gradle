@@ -13,7 +13,9 @@ dependencies {
     // https://mvnrepository.com/artifact/nz.ac.waikato.cms.weka/weka-stable
     implementation group: 'nz.ac.waikato.cms.weka', name: 'weka-stable', version: '3.8.0'
     implementation group: 'commons-logging', name: 'commons-logging', version: '1.2'
+    implementation group: 'org.ejml', name: 'ejml-core', version: '0.40'
 
+    implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
 
     compile 'net.sf.jsci:jsci:1.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
