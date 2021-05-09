@@ -1,0 +1,125 @@
+Входные данные:
+    n - количество входных данных
+    data[n] - кластеризуемые данные
+    k - количество кластеров
+    stop - условие остановки алгоритма(достижение заданной точности кластеризаци или заданного количества итераций)
+    w - количество воркеров
+    worker[w] - воркеры с распределенными на них данными
+    worker[w].data - данные на воркере
+    worker[w].len - количество данных на воркере
+    workerClustProb[k] - априорные вероятности принадлжености данных к кластерам по результатам вычислений на конкретном воркере
+    clustProb[k] - агрегированные априорные вероятности принадлежности данных к клатерам
+
+Инициализация:
+    gamma[n, k], gamma[i, j] = 0 for i = 0..n-1, j = 0..k-1 - матрица скрытых переменных
+    mean[k], mean[j] = Random for j = 0..k-1  - мат.ожидания гауссиан, описывающих кластера
+    cov[k], cov[j] = I for j = 0..k-1 - матрицы ковариации гауссиан, описывающие кластера
+    weight[k], weight[j] = 1/k j = 0..k-1 - априорные вероятности принадлежности наблюдений к кластерам
+    clustProb[k]
+
+for i = 0..w-1
+        worker[w].init()
+
+while (!stop)
+
+    for i = 0..w-1
+        workerClustProb = worker[w].eStep(mean, cov, weights)
+        for j = 0..k-1
+            clustProb[j] += workerClustProb[j]
+
+    for i = 0..w-1
+        workerClustMean = worker[w].mStepStage1(clustProb)
+        for j = 0..k-1
+            mean[j] += workerClustMean[j]
+
+    for i = 0..w-1
+        workerClustCov = worker[w].mStepStage2(mean)
+        for j = 0..k-1
+            cov[j] += workerClustCov[j]
+
+    for i = 0..w-1
+        worker[w].mStepStage3(cov)
+
+
+
+
+worker
+
+function init() // loads data to variable 'data' and its length to variable 'len'
+
+function eStep()
+    // saving mean, cov and weights to worker class fields
+    localClustProb[k]
+    for i = 0..len-1
+        instanceProb = 0
+        for j = 0..k-1
+            instanceProb = instanceProb + weight[j] * p(data[i,j], mean[j], cov[j])
+        for j = 0..k-1
+            gamma[i, j] = weight[j] * p(data[i,j]) / instanceProb
+            localClustProb[j] = clustProb[j] + gamma[i, j]
+
+    return localClustProb
+
+function mStepStage1(nonNormWeights)
+    // saving non-norm weights to worker class field
+    clusterLocalMeans[k]
+
+    for i = 0..len-1
+        for j = 0..k-1
+            clusterLocalMeans[j] += data[i] * gamma[i, j]
+
+    return clusterLocalMeans
+
+function mStepStage2(clustersMeans)
+    // saving clustersMeans to worker class field
+    nonNormCovariance[k]
+
+    for i = 0..len-1
+        for j = 0..k-1
+            nonNormCovariance[j] += (data[i] - clusterMeans[j])^2 * gamma[i,j]
+
+    return nonNormCovariance
+
+function mStepStage3(cov)
+    // saving cov to worker class field
+    for j = 0..k-1
+        weight[j] = nonNormWeights[j] / n
+
+master
+
+clustersProb[k]
+clustersMean[k]
+clustersCov[k]
+workerClustProb[k]
+
+for i = 0..w-1
+        worker[w].init()
+
+while (!stop)
+
+    for i = 0..w-1
+        workerClustProb = worker[w].eStep(mean, cov, weights)
+        for j = 0..k-1
+            clustersProb[j] += workerClustProb[j]
+
+    for i = 0..w-1
+        workerClustMean = worker[w].mStepStage1(clustersProb)
+        for j = 0..k-1
+            mean[j] += workerClustMean[j]
+
+    for i = 0..w-1
+        workerClustCov = worker[w].mStepStage2(mean)
+        for j = 0..k-1
+            cov[j] += workerClustCov[j]
+
+    for i = 0..w-1
+        worker[w].mStepStage3(cov)
+
+
+
+
+
+
+
+
+
