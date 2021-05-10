@@ -1,4 +1,8 @@
-Входные данные:
+------------------------------------------------------------------------------------------------------------------------
+Master
+------------------------------------------------------------------------------------------------------------------------
+
+Входные данные & инициализация:
     n - количество входных данных
     data[n] - кластеризуемые данные
     k - количество кластеров
@@ -8,10 +12,9 @@
     worker[w].data - данные на воркере
     worker[w].len - количество данных на воркере
     workerClustProb[k] - априорные вероятности принадлжености данных к кластерам по результатам вычислений на конкретном воркере
+    workerClustMean[k] - мат.ожидания гауссиан, описывающих кластера по рез-там вычислений на воркерах
+    workerClustCov[k] - матрицы ковариации гауссиан, описывающих кластера по рез-там вычислений на воркерах
     clustProb[k] - агрегированные априорные вероятности принадлежности данных к клатерам
-
-Инициализация:
-    gamma[n, k], gamma[i, j] = 0 for i = 0..n-1, j = 0..k-1 - матрица скрытых переменных
     mean[k], mean[j] = Random for j = 0..k-1  - мат.ожидания гауссиан, описывающих кластера
     cov[k], cov[j] = I for j = 0..k-1 - матрицы ковариации гауссиан, описывающие кластера
     weight[k], weight[j] = 1/k j = 0..k-1 - априорные вероятности принадлежности наблюдений к кластерам
@@ -41,11 +44,22 @@ while (!stop)
         worker[w].mStepStage3(cov)
 
 
+------------------------------------------------------------------------------------------------------------------------
+Worker
+------------------------------------------------------------------------------------------------------------------------
 
+Входные данные & инициализация:
+    n - общеее количество входных данных
+    len - количество данных на воркере
+    data[len] - кластеризуемые данные
+    localClustProb[k] - априорные вероятности принадлжености данных к кластерам вычисленные по данным на воркере
+    localClustMean[k] - мат.ожидания гауссиан, вычисленные по данным на воркере
+    localClustCov[k] - матрицы ковариации гауссиан вычисленные по данным на воркере
+    gamma[n, k], gamma[i, j] = 0 for i = 0..n-1, j = 0..k-1 - матрица скрытых переменных
+    mean[k], mean[j] = Random for j = 0..k-1  - мат.ожидания гауссиан, описывающих кластера, вычесленные по всем данным
+    cov[k], cov[j] = I for j = 0..k-1 - матрицы ковариации гауссиан, описывающие кластера, вычесленные по всем данным
 
-worker
-
-function init() // loads data to variable 'data' and its length to variable 'len'
+function init(mean, cov, weights, n) // loads data to variable 'data' and its length to variable 'len'
 
 function eStep()
     // saving mean, cov and weights to worker class fields
@@ -83,38 +97,5 @@ function mStepStage2(clustersMeans)
 function mStepStage3(cov)
     // saving cov to worker class field
     for j = 0..k-1
-        weight[j] = nonNormWeights[j] / n
 
-master
-
-clustersProb[k]
-clustersMean[k]
-clustersCov[k]
-workerClustProb[k]
-
-for i = 0..w-1
-        worker[w].init()
-
-while (!stop)
-
-    for i = 0..w-1
-        workerClustProb = worker[w].eStep(mean, cov, weights)
-        for j = 0..k-1
-            clustersProb[j] += workerClustProb[j]
-
-    for i = 0..w-1
-        workerClustMean = worker[w].mStepStage1(clustersProb)
-        for j = 0..k-1
-            mean[j] += workerClustMean[j]
-
-    for i = 0..w-1
-        workerClustCov = worker[w].mStepStage2(mean)
-        for j = 0..k-1
-            cov[j] += workerClustCov[j]
-
-    for i = 0..w-1
-        worker[w].mStepStage3(cov)
-
-
-
-
+weight[j] = nonNormWeights[j] / n
