@@ -3,7 +3,9 @@ package em.v2;
 import JSci.maths.matrices.AbstractDoubleSquareMatrix;
 import JSci.maths.matrices.DoubleSquareMatrix;
 import JSci.maths.vectors.AbstractDoubleVector;
+import JSci.maths.vectors.DoubleVector;
 
+import javax.rmi.CORBA.Util;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -11,7 +13,7 @@ import java.util.stream.Collectors;
 
 public class EMMaster {
     EMWorker[] workers;
-    EMModel.GaussianMixture model;
+    EMModel model;
     int nClusters;
     double[] clusterWeights;
 
@@ -31,71 +33,88 @@ public class EMMaster {
     }
 
     public void iteration() {
-        double[] clustProbs = Arrays.stream(workers)
-                .map(client -> client.eStep(Optional.of(model), clusterWeights))
-                .reduce((data1Probs, data2Probs) -> {
-                            if (data1Probs.length == data2Probs.length && data1Probs.length == nClusters) {
-                                double[] aggregatedProbs = new double[nClusters];
+        double[] aggregatedProbs = new double[nClusters];
+
+        Arrays.stream(workers)
+                .map(client -> client.eStep_(model.copyForWorker()))
+                .forEach((newModel) -> {
+                            double[] data1Probs = ((EMModel.EStepData) newModel.data).clustersWeights;
+
+                            if (data1Probs.length == nClusters) {
 
                                 for (int i = 0; i < nClusters; i++) {
-                                    aggregatedProbs[i] = data1Probs[i] + data2Probs[i];
+                                    aggregatedProbs[i] += data1Probs[i];
                                 }
 
-                                return aggregatedProbs;
                             } else {
                                 throw new RuntimeException("Clients return data from eStep() with different number of clusters");
                             }
                         }
-                ).orElse(new double[0]);
+                );
+
+        EMModel.MStepStage1Data newData = new EMModel.MStepStage1Data();
+        model.data = newData;
 
         // aggregating of computations from each worker of means per them data and calculating general clusters' means
-        AbstractDoubleVector[] nonNormClustersMeans = Arrays.stream(workers)
-                .map(client -> client.mStepStage1(clustProbs))
-                .reduce((data1Means, data2Means) -> {
-                    if (data1Means.length == data2Means.length && data1Means.length == nClusters) {
-                        AbstractDoubleVector[] aggregatedMeans = new AbstractDoubleVector[nClusters];
+
+        AbstractDoubleVector[] aggregatedMeans = new AbstractDoubleVector[nClusters];
+        Utils.init(aggregatedMeans, () -> new DoubleVector(model.dim));
+
+        Arrays.stream(workers)
+                .map(client -> client.mStepStage1_(model.copyForWorker()))
+                .forEach(newModel -> {
+                    AbstractDoubleVector[] clustersNonNormLocalMeans = ((EMModel.MStepStage1Data) newModel.data)
+                            .clustersNonNormLocalMeans;
+
+                    if (clustersNonNormLocalMeans.length == nClusters) {
 
                         for (int i = 0; i < nClusters; i++) {
-                            aggregatedMeans[i] = data1Means[i].add(data2Means[i]);
+                            aggregatedMeans[i] = aggregatedMeans[i].add(clustersNonNormLocalMeans[i]);
                         }
 
-                        return aggregatedMeans;
                     } else {
                         throw new RuntimeException("Clients return data from mStepStage1() with different number of clusters");
                     }
-                }).orElse(new AbstractDoubleVector[0]);
+                });
 
-        AbstractDoubleVector[] clustersMeans = new AbstractDoubleVector[nClusters];
 
         for (int i = 0; i < nClusters; i++) {
-            clustersMeans[i] = nonNormClustersMeans[i].scalarDivide(clustProbs[i]);
+            aggregatedMeans[i] = aggregatedMeans[i].scalarDivide(aggregatedProbs[i]);
         }
+
+        EMModel.MStepStage2Data dataMStepStage2 = new EMModel.MStepStage2Data();
+        dataMStepStage2.newClustersMeans = aggregatedMeans;
+        model.data = newData;
 
         // aggregating of computations from each worker of covariance matrices per them data and calculating general clusters' covariances
-        AbstractDoubleSquareMatrix[] nonNormClustersCov = Arrays.stream(workers)
-                .map(client -> client.mStepStage2(clustersMeans))
-                .reduce((data1Cov, data2Cov) -> {
-                    if (data1Cov.length == data2Cov.length && data1Cov.length == nClusters) {
-                        AbstractDoubleSquareMatrix[] aggregatedMeans = new DoubleSquareMatrix[nClusters];
+        AbstractDoubleSquareMatrix[] aggregatedCovs = new DoubleSquareMatrix[nClusters];
+        Utils.init(aggregatedCovs, () -> new DoubleSquareMatrix(model.dim));
+
+        Arrays.stream(workers)
+                .map(client -> client.mStepStage2_(model.copyForWorker()))
+                .forEach((newModel) -> {
+
+                    AbstractDoubleSquareMatrix[] clustersNonNormLocalCovs = ((EMModel.MStepStage2Data) newModel.data)
+                            .clustersNonNormLocalCovs;
+                    if (clustersNonNormLocalCovs.length == nClusters) {
 
                         for (int i = 0; i < nClusters; i++) {
-                            aggregatedMeans[i] = data1Cov[i].add(data2Cov[i]);
+                            aggregatedCovs[i] = aggregatedCovs[i].add(clustersNonNormLocalCovs[i]);
                         }
 
-                        return aggregatedMeans;
                     } else {
                         throw new RuntimeException("Clients return data from mStepStage1() with different number of clusters");
                     }
-                }).orElse(new AbstractDoubleSquareMatrix[0]);
+                });
 
-        AbstractDoubleSquareMatrix[] clustersCov = new DoubleSquareMatrix[nClusters];
 
         for (int i = 0; i < nClusters; i++) {
-            clustersCov[i] = (DoubleSquareMatrix) nonNormClustersCov[i].scalarDivide(clustProbs[i]);
+            aggregatedCovs[i] = (DoubleSquareMatrix) aggregatedCovs[i].scalarDivide(aggregatedProbs[i]);
         }
 
-        // updating covariance matrices for each worker
-        Arrays.stream(workers).forEach(worker -> worker.mStepStage3(clustersCov));
+        for (int i = 0; i < nClusters; i++) {
+            model.clusters[i].updateGaussDistParams(aggregatedMeans[i], aggregatedCovs[i]);
+        }
 
     }
 
